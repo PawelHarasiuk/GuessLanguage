@@ -101,17 +101,17 @@ def load_data():
     data = cursor.fetchall()
     cursor.close()
     db.close()
+    return data
 
-    treeview.delete(*treeview.get_children())  # Clear existing data in the treeview
 
-    for row in data:
-        lang = row[0]
-        content = row[1]
-        row_data = content.split(", ")
-        values = [item.split(" = ") for item in row_data]
-        values = {item[0]: item[1] for item in values}
-        row_values = [values.get(chr(97 + i), '0') for i in range(26)]
-        treeview.insert("", "end", values=(lang, *row_values))
+def load_button_command():
+    # Clear previous data in the treeview
+    for item in treeview.get_children():
+        treeview.delete(item)
+    # Insert loaded data into the treeview
+    for lang, content in zip(training_labels, training_data):
+        content_dict = {column: value for column, value in zip(columns, content)}
+        treeview.insert("", "end", values=(lang, *content_dict.values()))
 
 
 def connection():
@@ -125,7 +125,7 @@ training_data = []
 training_labels = []
 test_data = []
 test_labels = []
-columns = ['data']
+columns = [chr(i) for i in range(97, 123)]  # Letters from 'a' to 'z'
 for l in languages:
     for i in range(10):
         training_data.append(read_file(f'data/training/{l}/{i}.txt'))
@@ -173,19 +173,21 @@ save_button.pack()
 save_text = ttk.Label(root, text="")
 save_text.pack()
 
-load_button = ttk.Button(root, text="Load Data", command=load_data)
+load_button = ttk.Button(root, text="Load Data", command=load_button_command)
 load_button.pack()
 
 treeview_frame = ttk.Frame(root)
 treeview_frame.pack(pady=20)
 
 treeview = ttk.Treeview(treeview_frame)
-treeview["columns"] = ["language"] + [chr(97 + i) for i in range(26)]
-for column in ["language"] + [chr(97 + i) for i in range(26)]:
-    treeview.column(column, anchor=tk.CENTER, width=50)
-    treeview.heading(column, text=column.upper())
+treeview["columns"] = ["label"] + columns
+for column in ["label"] + columns:
+    treeview.column(column, anchor=tk.CENTER, width=100)
+    treeview.heading(column, text=column)
 
-load_data()
+data = load_data()
+for row in data:
+    treeview.insert("", "end", values=row)
 
 treeview.pack()
 
