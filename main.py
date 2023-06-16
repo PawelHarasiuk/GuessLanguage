@@ -3,7 +3,9 @@ import re
 import sqlite3
 import tkinter as tk
 import tkinter.ttk as ttk
+import string
 
+import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import LabelEncoder
@@ -82,18 +84,6 @@ def rebuild_model():
     rebuild_text.config(text="Model rebuilt.")
 
 
-def save_data():
-    db = connection()
-    cursor = db.cursor()
-    cursor.execute("DELETE FROM training_data")
-    for data, label in zip(training_data, training_labels):
-        cursor.execute("INSERT INTO training_data (label, data) VALUES (?, ?);", (label, data))
-    db.commit()
-    cursor.close()
-    db.close()
-    save_text.config(text="Data saved.")
-
-
 def load_data():
     db = connection()
     cursor = db.cursor()
@@ -117,6 +107,28 @@ def load_button_command():
 def connection():
     conn = sqlite3.connect('training_data.db')
     return conn
+
+
+def visualize_data():
+    # Pobranie wag modelu dla pierwszej warstwy dla każdego języka
+    model_weights = model.coefs_[0]
+    languages = label_encoder.classes_
+
+    for i, language in enumerate(languages):
+        # Tworzenie nowego okna dla każdego języka
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.set_title(f'Weights - {language}')
+        ax.set_ylabel('Weight')
+        ax.set_xlabel('Letter')
+
+        x_labels = list(string.ascii_lowercase)
+        weights = model_weights[i][:26]  # Ograniczenie do 26 pierwszych wartości
+
+        ax.bar(x_labels, weights, alpha=0.5)
+        ax.grid(axis='y', linestyle='-')  # Linie kraty na osi y
+        ax.grid(axis='x', linestyle='-')  # Linie kraty na osi x
+        plt.tight_layout()
+        plt.show()
 
 
 # Wczytanie danych treningowych
@@ -167,14 +179,14 @@ rebuild_button.pack()
 rebuild_text = ttk.Label(root, text="")
 rebuild_text.pack()
 
-save_button = ttk.Button(root, text="Save Data", command=save_data)
-save_button.pack()
-
 save_text = ttk.Label(root, text="")
 save_text.pack()
 
 load_button = ttk.Button(root, text="Load Data", command=load_button_command)
 load_button.pack()
+
+visualize_button = ttk.Button(root, text="Visualize Data", command=visualize_data)
+visualize_button.pack()
 
 treeview_frame = ttk.Frame(root)
 treeview_frame.pack(pady=20)
@@ -190,5 +202,4 @@ for row in data:
     treeview.insert("", "end", values=row)
 
 treeview.pack()
-
 root.mainloop()
