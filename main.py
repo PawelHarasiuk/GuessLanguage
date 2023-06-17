@@ -10,11 +10,13 @@ from sklearn.metrics import accuracy_score
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import LabelEncoder
 
+# Tworzenie okna głównego
 root = tk.Tk()
 root.title("Predykcja Języka")
 root.geometry("800x600")
 
 
+# Funkcje pomocnicze
 def read_file(file_path):
     with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
         text = file.read().lower()
@@ -59,6 +61,7 @@ def predict_language():
     text = input_text.get("1.0", "end-1c")
     to_predict = prepare_user_data(text)
     if len(text) > 0:
+        # Predykcja dla użytkownika
         prediction_encoded = model.predict([to_predict])
         prediction = label_encoder.inverse_transform(prediction_encoded)
         prediction_text.config(text="Prediction: " + str(prediction))
@@ -75,12 +78,14 @@ def evaluate_model():
 
 def rebuild_model():
     global model
-    label_encoder_rebuild = LabelEncoder()
-    training_labels_encoded_rebuild = label_encoder_rebuild.fit_transform(training_labels)
+    # Przygotowanie i trenowanie modelu
+    label_encoder = LabelEncoder()
+    training_labels_encoded = label_encoder.fit_transform(training_labels)
 
+    # Przygotowanie i trenowanie modelu
     model = MLPClassifier(hidden_layer_sizes=(len(training_data),), max_iter=2000, random_state=42)
 
-    model.fit(training_data, training_labels_encoded_rebuild)
+    model.fit(training_data, training_labels_encoded)
     rebuild_text.config(text="Model rebuilt.")
 
 
@@ -105,8 +110,10 @@ def load_data():
 
 
 def load_button_command():
+    # Clear previous data in the treeview
     for item in treeview.get_children():
         treeview.delete(item)
+    # Insert loaded data into the treeview
     for lang, content in zip(training_labels, training_data):
         content_dict = {column: value for column, value in zip(columns, content)}
         treeview.insert("", "end", values=(lang, *content_dict.values()))
@@ -118,21 +125,23 @@ def connection():
 
 
 def visualize_data():
+    # Pobranie wag modelu dla pierwszej warstwy dla każdego języka
     model_weights = model.coefs_[0]
     languages = label_encoder.classes_
 
     for i, language in enumerate(languages):
+        # Tworzenie nowego okna dla każdego języka
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.set_title(f'Weights - {language}')
         ax.set_ylabel('Weight')
         ax.set_xlabel('Letter')
 
         x_labels = list(string.ascii_lowercase)
-        weights = model_weights[i][:26]
+        weights = model_weights[i][:26]  # Ograniczenie do 26 pierwszych wartości
 
         ax.bar(x_labels, weights, alpha=0.5)
-        ax.grid(axis='y', linestyle='-')
-        ax.grid(axis='x', linestyle='-')
+        ax.grid(axis='y', linestyle='-')  # Linie kraty na osi y
+        ax.grid(axis='x', linestyle='-')  # Linie kraty na osi x
         plt.tight_layout()
         plt.show()
 
@@ -142,11 +151,14 @@ def add_button_command():
     language = language_var.get()
 
     if len(text) > 0 and language:
+        # Format the input text
         formatted_data = prepare_user_data(text)
 
+        # Add the record to training_data list and training_labels list
         training_data.append(formatted_data)
         training_labels.append(language)
 
+        # Add the record to the database
         db = connection()
         cursor = db.cursor()
         cursor.execute("INSERT INTO training_data (label, data) VALUES (?, ?)",
@@ -155,20 +167,22 @@ def add_button_command():
         cursor.close()
         db.close()
 
+        # Clear the input text field
         input_text.delete("1.0", tk.END)
 
+        # Show success message
         save_text.config(text="Record added successfully.")
-        load_button_command()
     else:
         save_text.config(text="Error: Empty text or no language selected.")
 
 
+# Wczytanie danych treningowych
 languages = os.listdir("data/training")
 training_data = []
 training_labels = []
 test_data = []
 test_labels = []
-columns = [chr(i) for i in range(97, 123)]
+columns = [chr(i) for i in range(97, 123)]  # Letters from 'a' to 'z'
 for l in languages:
     for i in range(10):
         training_data.append(read_file(f'data/training/{l}/{i}.txt'))
@@ -176,10 +190,16 @@ for l in languages:
         test_data.append(read_file(f'data/test/{l}/{i}.txt'))
         test_labels.append(l)
 
+# Przekształcenie etykiet na wartości liczbowe
 label_encoder = LabelEncoder()
 training_labels_encoded = label_encoder.fit_transform(training_labels)
 test_labels_encoded = label_encoder.transform(test_labels)
 
+# Przygotowanie i trenowanie modelu
+model = MLPClassifier(hidden_layer_sizes=(len(training_data),), max_iter=2000, random_state=42)
+model.fit(training_data, training_labels_encoded)
+
+# Tworzenie interfejsu użytkownika
 input_label = ttk.Label(root, text="Enter test text:")
 input_label.pack()
 
