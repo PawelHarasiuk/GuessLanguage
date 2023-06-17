@@ -1,9 +1,9 @@
 import os
 import re
 import sqlite3
+import string
 import tkinter as tk
 import tkinter.ttk as ttk
-import string
 
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
@@ -79,7 +79,12 @@ def evaluate_model():
 def rebuild_model():
     global model
     # Przygotowanie i trenowanie modelu
-    model = MLPClassifier(hidden_layer_sizes=(50,), max_iter=2000, random_state=42)
+    label_encoder = LabelEncoder()
+    training_labels_encoded = label_encoder.fit_transform(training_labels)
+
+    # Przygotowanie i trenowanie modelu
+    model = MLPClassifier(hidden_layer_sizes=(len(training_data),), max_iter=2000, random_state=42)
+
     model.fit(training_data, training_labels_encoded)
     rebuild_text.config(text="Model rebuilt.")
 
@@ -131,6 +136,36 @@ def visualize_data():
         plt.show()
 
 
+def add_button_command():
+    text = input_text.get("1.0", "end-1c")
+    language = language_var.get()
+
+    if len(text) > 0 and language:
+        # Format the input text
+        formatted_data = prepare_user_data(text)
+
+        # Add the record to training_data list and training_labels list
+        training_data.append(formatted_data)
+        training_labels.append(language)
+
+        # Add the record to the database
+        db = connection()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO training_data (label, data) VALUES (?, ?)",
+                       (language, str(formatted_data)))
+        db.commit()
+        cursor.close()
+        db.close()
+
+        # Clear the input text field
+        input_text.delete("1.0", tk.END)
+
+        # Show success message
+        save_text.config(text="Record added successfully.")
+    else:
+        save_text.config(text="Error: Empty text or no language selected.")
+
+
 # Wczytanie danych treningowych
 languages = os.listdir("data/training")
 training_data = []
@@ -151,7 +186,7 @@ training_labels_encoded = label_encoder.fit_transform(training_labels)
 test_labels_encoded = label_encoder.transform(test_labels)
 
 # Przygotowanie i trenowanie modelu
-model = MLPClassifier(hidden_layer_sizes=(50,), max_iter=2000, random_state=42)
+model = MLPClassifier(hidden_layer_sizes=(len(training_data),), max_iter=2000, random_state=42)
 model.fit(training_data, training_labels_encoded)
 
 # Tworzenie interfejsu użytkownika
@@ -160,6 +195,17 @@ input_label.pack()
 
 input_text = tk.Text(root, height=10)
 input_text.pack()
+
+language_label = ttk.Label(root, text="Select language:")
+language_label.pack()
+
+language_var = tk.StringVar()
+language_combobox = ttk.Combobox(root, textvariable=language_var, state="readonly")
+language_combobox['values'] = languages
+language_combobox.pack()
+
+add_button = ttk.Button(root, text="Add", command=add_button_command)
+add_button.pack()
 
 predict_button = ttk.Button(root, text="Predict", command=predict_language)
 predict_button.pack()
