@@ -12,10 +12,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import LabelEncoder
 
 
-def read_file(file_path):
-    with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
-        text = file.read().lower()
-    clean_text = re.sub(r'[^a-zA-Z]+', '', text)
+def count_letter_ratio(clean_text):
     letter_count = {}
     for letter in clean_text:
         if letter in letter_count:
@@ -23,7 +20,7 @@ def read_file(file_path):
         else:
             letter_count[letter] = 1
     letter_ratio = []
-    letters = [chr(i) for i in range(97, 123)]
+    letters = [chr(ch) for ch in range(97, 123)]
     for letter in letters:
         if letter in letter_count and letter in letters:
             ratio = letter_count[letter] / len(clean_text)
@@ -33,22 +30,17 @@ def read_file(file_path):
     return letter_ratio
 
 
+def read_file(file_path):
+    with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
+        text = file.read().lower()
+    clean_text = re.sub(r'[^a-zA-Z]+', '', text)
+    letter_ratio = count_letter_ratio(clean_text)
+    return letter_ratio
+
+
 def prepare_user_data(text):
     clean_text = re.sub(r'[^a-zA-Z]+', '', text.lower())
-    letter_count = {}
-    for letter in clean_text:
-        if letter in letter_count:
-            letter_count[letter] += 1
-        else:
-            letter_count[letter] = 1
-    letter_ratio = []
-    letters = [chr(i) for i in range(97, 123)]
-    for letter in letters:
-        if letter in letter_count and letter in letters:
-            ratio = letter_count[letter] / len(clean_text)
-            letter_ratio.append(ratio)
-        elif letter in letters:
-            letter_ratio.append(0)
+    letter_ratio = count_letter_ratio(clean_text)
     return letter_ratio
 
 
@@ -67,17 +59,17 @@ def evaluate_model():
     predictions_encoded = model.predict(test_data)
     predictions = label_encoder.inverse_transform(predictions_encoded)
     accuracy = accuracy_score(test_labels, predictions)
-    accuracy_text.config(text="Accuracy: " + str(accuracy))
+    accuracy_text.config(text="Accuracy: " + str(accuracy * 100) + "%")
 
 
 def rebuild_model():
     global model
-    label_encoder = LabelEncoder()
-    training_labels_encoded = label_encoder.fit_transform(training_labels)
+    label_encoder_rebuild = LabelEncoder()
+    training_labels_encoded_rebuild = label_encoder_rebuild.fit_transform(training_labels)
 
     model = MLPClassifier(hidden_layer_sizes=(len(training_data),), max_iter=2000, random_state=42)
 
-    model.fit(training_data, training_labels_encoded)
+    model.fit(training_data, training_labels_encoded_rebuild)
     rebuild_text.config(text="Model rebuilt.")
 
     save_model_to_database()
@@ -114,23 +106,27 @@ def save_model_to_database():
 def load_button_command():
     for item in treeview.get_children():
         treeview.delete(item)
-    for lang, content in zip(training_labels, training_data):
-        content_dict = {column: value for column, value in zip(columns, content)}
+    for k in range(len(training_labels)):
+        lang = training_labels[k]
+        content = training_data[k]
+        content_dict = {}
+        for j, c in enumerate(columns):
+            content_dict[c] = content[j]
         treeview.insert("", "end", values=(lang, *content_dict.values()))
 
 
 def visualize_data():
     model_weights = model.coefs_[0]
-    languages = label_encoder.classes_
+    languages_vis = label_encoder.classes_
 
-    for i, language in enumerate(languages):
+    for it, language in enumerate(languages_vis):
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.set_title(f'Weights - {language}')
         ax.set_ylabel('Weight')
         ax.set_xlabel('Letter')
 
         x_labels = list(string.ascii_lowercase)
-        weights = model_weights[i][:26]
+        weights = model_weights[it][:26]
 
         ax.bar(x_labels, weights, alpha=0.5)
         ax.grid(axis='y', linestyle='-')
@@ -161,13 +157,12 @@ training_data = []
 training_labels = []
 test_data = []
 test_labels = []
-columns = [chr(i) for i in range(97, 123)]  # Letters from 'a' to 'z'
-for l in languages:
+for lan in languages:
     for i in range(10):
-        training_data.append(read_file(f'data/training/{l}/{i}.txt'))
-        training_labels.append(l)
-        test_data.append(read_file(f'data/test/{l}/{i}.txt'))
-        test_labels.append(l)
+        training_data.append(read_file(f'data/training/{lan}/{i}.txt'))
+        training_labels.append(lan)
+        test_data.append(read_file(f'data/test/{lan}/{i}.txt'))
+        test_labels.append(lan)
 
 label_encoder = LabelEncoder()
 training_labels_encoded = label_encoder.fit_transform(training_labels)
@@ -232,6 +227,7 @@ visualize_button.pack()
 treeview_frame = ttk.Frame(root)
 treeview_frame.pack(pady=20)
 
+columns = [chr(i) for i in range(97, 123)]
 treeview = ttk.Treeview(treeview_frame)
 treeview["columns"] = ["label"] + columns
 for column in ["label"] + columns:
