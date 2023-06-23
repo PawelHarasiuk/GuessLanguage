@@ -1,4 +1,4 @@
-##Language Prediction Project
+**Language Prediction Project
 This project is a language prediction application that uses a machine learning model to predict the language of a given text.
 It is built using Python and utilizes the scikit-learn library for training and evaluating the model.
 The application provides a user interface built with the Tkinter library for inputting text and displaying predictions.
